@@ -50,6 +50,8 @@ class IngestionPipeline:
             bits = 8
         elif precision == "int4":
             bits = 4
+        elif precision == "float16":
+            bits = 16
 
         embeddings = self.embedder.encode(chunks, quantize=quantize, bits=bits)
 

@@ -10,15 +10,26 @@ class Quantizer:
     @staticmethod
     def quantize(vector: np.ndarray, bits: int = 4) -> QuantizedEmbedding:
         """
-        Quantizes a float32 vector to 4-bit or 8-bit integers.
+        Quantizes a float32 vector to 4-bit, 8-bit integers or 16-bit floats.
         """
-        if bits not in [4, 8]:
+        if bits not in [4, 8, 16]:
             raise NotImplementedError(
-                f"Only 4-bit and 8-bit quantization are supported. Got {bits}."
+                f"Only 4-bit, 8-bit, and 16-bit quantization are supported. Got {bits}."
             )
 
         # Ensure vector is float32
         vector = vector.astype(np.float32)
+
+        if bits == 16:
+            # Float16 "quantization" (just casting)
+            data = vector.astype(np.float16).tobytes()
+            return QuantizedEmbedding(
+                data=data,
+                scale=1.0,
+                min_val=0.0,
+                bits=16,
+                shape=list(vector.shape),
+            )
 
         min_val = float(np.min(vector))
         max_val = float(np.max(vector))
@@ -59,10 +70,13 @@ class Quantizer:
         """
         Dequantizes a QuantizedEmbedding back to float32 vector.
         """
-        if q_emb.bits not in [4, 8]:
+        if q_emb.bits not in [4, 8, 16]:
             raise NotImplementedError(
-                f"Only 4-bit and 8-bit quantization are supported. Got {q_emb.bits}."
+                f"Only 4-bit, 8-bit, and 16-bit quantization are supported. Got {q_emb.bits}."
             )
+
+        if q_emb.bits == 16:
+            return np.frombuffer(q_emb.data, dtype=np.float16).astype(np.float32)
 
         packed = np.frombuffer(q_emb.data, dtype=np.uint8)
 

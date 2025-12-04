@@ -19,6 +19,17 @@ class VectorStore:
 
         if precision == "float32":
             self.index = faiss.IndexFlatL2(dim)
+        elif precision == "float16":
+            try:
+                self.index = faiss.IndexScalarQuantizer(
+                    dim, faiss.ScalarQuantizer.QT_fp16, faiss.METRIC_L2
+                )
+                self.is_quantized = True
+            except AttributeError:
+                print(
+                    f"Warning: QT_fp16 not supported for layer {layer_id}, falling back to Flat"
+                )
+                self.index = faiss.IndexFlatL2(dim)
         elif precision == "int8":
             try:
                 self.index = faiss.IndexScalarQuantizer(

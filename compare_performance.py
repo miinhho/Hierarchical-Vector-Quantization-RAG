@@ -7,16 +7,16 @@ from src.pipeline.ingest import IngestionPipeline
 from src.retrieval.search import HierarchicalRetriever
 import faiss
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict, Any, cast
 from src.core.embedding import EmbeddingModel
 
 
 class FlatRAG:
     def __init__(self):
         self.embedder = EmbeddingModel()
-        self.index = None
+        self.index: Any = None
         self.nodes = []
-        self.dimension = 384  # all-MiniLM-L6-v2 dimension
+        self.dimension = 768  # all-mpnet-base-v2 dimension
 
     def ingest(self, documents: List[str]):
         # Chunking (Same logic as IngestionPipeline to be fair)
@@ -32,17 +32,26 @@ class FlatRAG:
 
         # Encode (Float32 always)
         embeddings = self.embedder.encode(chunks, quantize=False)
+        embeddings = cast(List[Any], embeddings)
 
         # Store nodes in memory (simulating a simple DB)
         self.nodes = []
         for i, (text, emb) in enumerate(zip(chunks, embeddings)):
             self.nodes.append({"id": str(uuid.uuid4()), "text": text, "embedding": emb})
 
-        # Build Faiss Index
-        self.index = faiss.IndexFlatL2(self.dimension)
+        # Build Faiss Index (IVFFlat)
         if embeddings is not None and len(embeddings) > 0:
             matrix = np.array(embeddings).astype("float32")
+            nlist = int(np.sqrt(len(matrix)))
+            quantizer = faiss.IndexFlatL2(self.dimension)
+            self.index = faiss.IndexIVFFlat(
+                quantizer, self.dimension, nlist, faiss.METRIC_L2
+            )
+            self.index.train(matrix)
             self.index.add(matrix)
+            self.index.nprobe = 10
+        else:
+            self.index = faiss.IndexFlatL2(self.dimension)
 
     def query(self, query_text: str, k: int = 5) -> List[Dict[str, Any]]:
         if not self.index or self.index.ntotal == 0:
@@ -80,14 +89,14 @@ def main():
     from sklearn.datasets import fetch_20newsgroups
 
     # Load dataset, removing metadata to make it harder/more realistic
-    newsgroups = fetch_20newsgroups(
+    newsgroups: Any = fetch_20newsgroups(
         subset="all", remove=("headers", "footers", "quotes")
     )
 
     # Filter out empty or very short documents
     full_docs = [text for text in newsgroups.data if len(text) > 100]
 
-    # Limit to 5000 documents as requested for reasonable test duration
+    # Limit to 500 documents as requested for reasonable test duration
     target_count = 5000
     if len(full_docs) > target_count:
         full_docs = full_docs[:target_count]
@@ -104,13 +113,15 @@ def main():
     print(f"Flat RAG Ingestion Time: {flat_ingest_time:.4f}s")
 
     # Calculate Flat Storage (Memory approximation)
-    # 384 floats * 4 bytes * num_chunks
-    num_chunks = flat_rag.index.ntotal
-    flat_storage_bytes = num_chunks * 384 * 4
+    # 768 floats * 4 bytes * num_chunks
+    num_chunks = 0
+    if flat_rag.index:
+        num_chunks = flat_rag.index.ntotal
+    flat_storage_bytes = num_chunks * 768 * 4
     print(f"Flat RAG Index Size (Approx RAM): {flat_storage_bytes / 1024:.2f} KB")
 
     start_time = time.time()
-    flat_results = flat_rag.query("machine learning types", k=5)
+    flat_results = flat_rag.query("space shuttle mission details", k=5)
     print(f"Flat RAG result: {flat_results}")
     flat_query_time = time.time() - start_time
     print(f"Flat RAG Query Time: {flat_query_time:.4f}s")
@@ -151,7 +162,7 @@ def main():
     print(f"HiRAG Vector Index Size (Disk): {hirag_index_size / 1024:.2f} KB")
 
     start_time = time.time()
-    hirag_results = hirag_retriever.query("machine learning types", top_k=5)
+    hirag_results = hirag_retriever.query("space shuttle mission details", top_k=5)
     print(f"HiRAG result: {hirag_results}")
     hirag_query_time = time.time() - start_time
     print(f"HiRAG Query Time: {hirag_query_time:.4f}s")

@@ -89,15 +89,15 @@ class HierarchyBuilder:
             # Create embedding for summary
             # Determine precision for next level
             next_level = current_level + 1
-            precision = settings.LAYER_PRECISION.get(
-                next_level, "int4"
-            )  # Default to int4 for higher levels
+            precision = settings.LAYER_PRECISION.get(next_level, "int8")
             quantize = precision != "float32"
             bits = 4
             if precision == "int8":
                 bits = 8
             elif precision == "int4":
                 bits = 4
+            elif precision == "float16":
+                bits = 16
 
             emb = self.embedder.encode(summary, quantize=quantize, bits=bits)
 
