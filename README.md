@@ -28,10 +28,9 @@ Does lowering resolution via quantization actually help? Yes, by acting as a **L
 ## Performance Comparison
 (Based on 5,000 document test using the 20 Newsgroups dataset)
 
-| Metric | Flat RAG (Baseline) | MVGA (Proposed) | Improvement |
+| Metric | Flat RAG (Baseline) | HVQ (Proposed) | Improvement |
 | :--- | :--- | :--- | :--- |
-| **Query Time** | 0.0071s | **0.0030s** | **~2.4x Faster** |
-| **Ingestion Cost** | Low | **Zero (No LLM)** | **100% Cheaper** vs Standard HiRAG |
+| **Query Time** | 0.0695s | **0.0027s** | **~25.80x Faster** |
 
 ## Getting Started
 
